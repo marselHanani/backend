@@ -16,13 +16,10 @@ RUN apt-get update && apt-get install -y \
     nano \
     libcurl4-openssl-dev \
     pkg-config \
-    libssl-dev \
-    nodejs \
-    npm \
-    && rm -rf /var/lib/apt/lists/*
+    libssl-dev
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring exif pcntl bcmath gd zip curl
+RUN docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd zip
 
 # Install Composer
 COPY --from=composer:2.5 /usr/bin/composer /usr/bin/composer
@@ -30,33 +27,24 @@ COPY --from=composer:2.5 /usr/bin/composer /usr/bin/composer
 # Set working directory
 WORKDIR /var/www
 
-# Copy composer files first for better caching
-COPY composer.json composer.lock ./
+# Copy composer.json first
+COPY composer.json ./
+
+# Copy composer.lock if it exists, otherwise create empty file
+COPY composer.loc[k] ./
+RUN [ -f composer.lock ] || composer install --dry-run
 
 # Install Laravel dependencies
-RUN composer install --no-dev --optimize-autoloader --no-scripts
+RUN composer install --no-dev --optimize-autoloader
 
 # Copy the rest of the application
 COPY . .
 
-# Generate application key
-RUN php artisan key:generate
-
 # Set permissions
-RUN chown -R www-data:www-data /var/www \
-    && chmod -R 755 /var/www/storage \
-    && chmod -R 755 /var/www/bootstrap/cache
+RUN chown -R www-data:www-data /var/www
 
-# Expose port
-EXPOSE 8080
-
-# Use a startup script instead of running migrations during build
-CMD php artisan config:cache && \
-    php artisan route:cache && \
-    php artisan serve --host=0.0.0.0 --port=8080
-
-# Run database migrations and seeding
-RUN php artisan migrate --force && \
-    php artisan db:seed --force
+# Remove database operations from build (run separately)
+# RUN php artisan migrate --force && \
+#     php artisan db:seed --force
 
 CMD php artisan serve --host=0.0.0.0 --port=8080
