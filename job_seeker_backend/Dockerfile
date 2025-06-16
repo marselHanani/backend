@@ -33,9 +33,6 @@ WORKDIR /var/www
 # Copy composer files first for better caching
 COPY composer.json composer.lock ./
 
-# Copy .env.example and create .env
-COPY .env.example .env
-
 # Install Laravel dependencies
 RUN composer install --no-dev --optimize-autoloader --no-scripts
 
